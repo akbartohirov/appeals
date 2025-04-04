@@ -1,10 +1,18 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.forms import modelform_factory, modelformset_factory
-from .models import Appeal, AppealFile
 from django.contrib import messages
-from django.shortcuts import get_object_or_404
+from .models import Appeal, AppealFile
+from django import forms
 
-AppealForm = modelform_factory(Appeal, exclude=[])
+class CustomAppealForm(forms.ModelForm):
+    class Meta:
+        model = Appeal
+        exclude = []
+        widgets = {
+            'appeal_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+        }
+
+AppealForm = CustomAppealForm
 AppealFileFormSet = modelformset_factory(AppealFile, fields=('file',), extra=3)
 
 def create_appeal(request):
@@ -18,8 +26,11 @@ def create_appeal(request):
             for file_form in formset.cleaned_data:
                 if file_form and file_form.get('file'):
                     AppealFile.objects.create(appeal=appeal, file=file_form['file'])
+
             messages.success(request, 'Обращение успешно создано!')
-            return redirect('appeals_list')  # перенаправим на список после создания
+            return redirect('appeals_list')
+        else:
+            messages.error(request, 'Ошибка! Проверьте форму.')
     else:
         form = AppealForm()
         formset = AppealFileFormSet(queryset=AppealFile.objects.none())
@@ -28,6 +39,7 @@ def create_appeal(request):
         'form': form,
         'formset': formset,
     })
+
 
 def appeals_list(request):
     search = request.GET.get('search', '')
@@ -45,7 +57,6 @@ def appeals_list(request):
         'search': search,
         'status': status
     })
-
 
 
 def edit_appeal(request, pk):
